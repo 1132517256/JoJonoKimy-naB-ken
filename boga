@@ -1,0 +1,113 @@
+-- AUTOPICKUP CON FILTRO DE ITEMS
+
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+    Name = "Autopickup Aspiradora",
+    LoadingTitle = "Cargando...",
+    LoadingSubtitle = "by Tu Script",
+    ShowText = "v1.0",
+    Theme = "Default"
+})
+
+local AutopickupTab = Window:CreateTab("Autopickup", 0)
+
+-- Variables del script
+local rs = game:GetService("ReplicatedStorage")
+local Modules = rs:WaitForChild("Modules")
+local Packets = require(Modules:WaitForChild("Packets"))
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+local ITEMS_FOLDER = workspace:WaitForChild("Items")
+local PICKUP_DISTANCE = 25
+local pickupActive = false
+local pickupLoop = nil
+
+-- LISTA DE ITEMS CON FILTRO
+local itemFilters = {
+    ["Emerald"] = true,
+    ["Coal"] = true,
+    ["Crystal Chunk"] = true,
+    ["Pink Diamond"] = true,
+    ["Raw Gold"] = true,
+    ["Adurite"] = true,
+    ["Gold"] = true,
+    ["Iron"] = true,
+    ["Spirit Key"] = true,
+    ["Steel"] = true,
+    ["Magnetite"] = true,
+    ["Essence"] = true,
+    ["Bloodfruit"] = true,
+    ["Coin2"] = true,
+}
+
+local function getDistance(a, b)
+    return (a.Position - b.Position).Magnitude
+end
+
+local function startPickupLoop()
+    if pickupLoop then task.cancel(pickupLoop) end
+    
+    pickupLoop = spawn(function()
+        while pickupActive do
+            task.wait(0.1)
+
+            local char = player.Character
+            if not char then continue end
+
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            if not hrp then continue end
+
+            for _, item in ipairs(ITEMS_FOLDER:GetChildren()) do
+                -- Verificar si el item está en el filtro y está activado
+                if not itemFilters[item.Name] then continue end
+                
+                local part = item:IsA("BasePart") and item or item:FindFirstChildWhichIsA("BasePart", true)
+                if not part then continue end
+
+                if getDistance(hrp, part) <= PICKUP_DISTANCE then
+                    local entityId = item:GetAttribute("EntityID")
+                    if entityId then
+                        pcall(function()
+                            Packets.Pickup.send(entityId)
+                        end)
+                    end
+                end
+            end
+        end
+    end)
+end
+
+-- TOGGLE AUTOPICKUP
+AutopickupTab:CreateToggle({
+    Name = "Activar Autopickup",
+    CurrentValue = false,
+    Callback = function(Value)
+        pickupActive = Value
+        if pickupActive then
+            startPickupLoop()
+            print("✅ Autopickup ACTIVADO")
+        else
+            if pickupLoop then task.cancel(pickupLoop) end
+            print("❌ Autopickup DESACTIVADO")
+        end
+    end,
+})
+
+-- DIVIDER
+AutopickupTab:CreateDivider()
+
+-- TOGGLES PARA CADA ITEM
+for itemName, _ in pairs(itemFilters) do
+    AutopickupTab:CreateToggle({
+        Name = itemName,
+        CurrentValue = true,
+        Callback = function(Value)
+            itemFilters[itemName] = Value
+            print(itemName .. ": " .. (Value and "✅ ACTIVADO" or "❌ DESACTIVADO"))
+        end,
+    })
+end
+
+print("✅ Script cargado correctamente")
