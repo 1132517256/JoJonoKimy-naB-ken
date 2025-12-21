@@ -1,4 +1,4 @@
--- AUTOPICKUP CON FILTRO DE ITEMS + MISC + ESP + ESP DIOSES (SIN CAMERA THROUGH)
+-- AUTOPICKUP CON FILTRO DE ITEMS + MISC + ESP + ESP DIOSES
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
@@ -28,6 +28,9 @@ local pickupLoop = nil
 
 local deleteItemsActive = false
 local deleteItemsLoop = nil
+
+local cameraThroughActive = false
+local cameraThroughLoop = nil
 
 local espActive = false
 local espLoop = nil
@@ -117,6 +120,63 @@ local function startDeleteItemsLoop()
             end
         end
     end)
+end
+
+-- ================= CAMERA THROUGH =================
+
+local function startCameraThroughLoop()
+    if cameraThroughLoop then task.cancel(cameraThroughLoop) end
+    
+    local deployables = workspace:FindFirstChild("Deployables")
+    if deployables then
+        for _, part in ipairs(deployables:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end
+    
+    cameraThroughLoop = task.spawn(function()
+        local camera = workspace.CurrentCamera
+        
+        while cameraThroughActive do
+            task.wait(0.15)
+            
+            local deployables = workspace:FindFirstChild("Deployables")
+            
+            if deployables then
+                for _, part in ipairs(deployables:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        local cameraPos = camera.CFrame.Position
+                        local partPos = part.Position
+                        local partSize = (part.Size.Magnitude / 2) + 5
+                        
+                        local distance = (cameraPos - partPos).Magnitude
+                        
+                        if distance <= partSize then
+                            part.Transparency = 0.85
+                        else
+                            part.Transparency = 0
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end
+
+local function stopCameraThrough()
+    if cameraThroughLoop then task.cancel(cameraThroughLoop) end
+    
+    local deployables = workspace:FindFirstChild("Deployables")
+    if deployables then
+        for _, part in ipairs(deployables:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.Transparency = 0
+                part.CanCollide = true
+            end
+        end
+    end
 end
 
 -- ================= ESP NORMAL =================
@@ -248,7 +308,8 @@ local function startGodESP()
                         local humanoid = character:FindFirstChild("Humanoid")
                         
                         if humanoidRootPart and humanoid then
-                            local teamColor = Color3.fromRGB(255, 215, 0) -- dorado
+                            -- Color especial para dioses (por ejemplo, dorado)
+                            local teamColor = Color3.fromRGB(255, 215, 0)
                             
                             local highlight = character:FindFirstChild("GOD_ESP_Highlight")
                             
@@ -352,7 +413,7 @@ for itemName, _ in pairs(itemFilters) do
     })
 end
 
--- ============ MISC TAB (SIN CAMERA THROUGH) ============
+-- ============ MISC TAB ============
 
 MiscTab:CreateToggle({
     Name = "Delete All Items",
@@ -365,6 +426,21 @@ MiscTab:CreateToggle({
         else
             if deleteItemsLoop then task.cancel(deleteItemsLoop) end
             print("❌ Delete All Items DESACTIVADO")
+        end
+    end,
+})
+
+MiscTab:CreateToggle({
+    Name = "Camera Through",
+    CurrentValue = false,
+    Callback = function(Value)
+        cameraThroughActive = Value
+        if cameraThroughActive then
+            startCameraThroughLoop()
+            print("✅ Camera Through ACTIVADO")
+        else
+            stopCameraThrough()
+            print("❌ Camera Through DESACTIVADO")
         end
     end,
 })
