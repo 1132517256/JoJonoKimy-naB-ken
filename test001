@@ -1,4 +1,4 @@
--- AUTOPICKUP CON FILTRO DE ITEMS + MISC + ESP + ESP DIOSES
+-- AUTOPICKUP CON FILTRO DE ITEMS + MISC + ESP + ESP DIOSES + ESP ITEMS IMPORTANTES + ESP METEOR CORE + CAMERA NOCLIP
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
@@ -29,19 +29,24 @@ local pickupLoop = nil
 local deleteItemsActive = false
 local deleteItemsLoop = nil
 
-local cameraThroughActive = false
-local cameraThroughLoop = nil
-
 local espActive = false
 local espLoop = nil
 
 local godEspActive = false
 local godEspLoop = nil
 
+local itemsEspActive = false
+local itemsEspLoop = nil
+
+local meteorEspActive = false
+local meteorEspLoop = nil
+
+local cameraNoclipActive = false
+
 local playersWithESP = {}
 local playersWithGodESP = {}
 
--- LISTA DE ITEMS CON FILTRO
+-- LISTA DE ITEMS CON FILTRO AUTOPICKUP
 local itemFilters = {
     ["Emerald"] = true,
     ["Coal"] = true,
@@ -57,6 +62,12 @@ local itemFilters = {
     ["Essence"] = true,
     ["Bloodfruit"] = true,
     ["Coin2"] = true,
+}
+
+-- ITEMS IMPORTANTES PARA ESP
+local importantItemNames = {
+    ["Gold"] = true,
+    ["Crystal Chunk"] = true,
 }
 
 local function getDistance(a, b)
@@ -92,7 +103,7 @@ local function startPickupLoop()
                 if not part then continue end
 
                 if getDistance(hrp, part) <= PICKUP_DISTANCE then
-                    local entityId = item:GetAttribute("EntityID")
+                    local entityId = item:SetAttribute("EntityID") and item:GetAttribute("EntityID")
                     if entityId then
                         pcall(function()
                             Packets.Pickup.send(entityId)
@@ -122,64 +133,7 @@ local function startDeleteItemsLoop()
     end)
 end
 
--- ================= CAMERA THROUGH =================
-
-local function startCameraThroughLoop()
-    if cameraThroughLoop then task.cancel(cameraThroughLoop) end
-    
-    local deployables = workspace:FindFirstChild("Deployables")
-    if deployables then
-        for _, part in ipairs(deployables:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = false
-            end
-        end
-    end
-    
-    cameraThroughLoop = task.spawn(function()
-        local camera = workspace.CurrentCamera
-        
-        while cameraThroughActive do
-            task.wait(0.15)
-            
-            local deployables = workspace:FindFirstChild("Deployables")
-            
-            if deployables then
-                for _, part in ipairs(deployables:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        local cameraPos = camera.CFrame.Position
-                        local partPos = part.Position
-                        local partSize = (part.Size.Magnitude / 2) + 5
-                        
-                        local distance = (cameraPos - partPos).Magnitude
-                        
-                        if distance <= partSize then
-                            part.Transparency = 0.85
-                        else
-                            part.Transparency = 0
-                        end
-                    end
-                end
-            end
-        end
-    end)
-end
-
-local function stopCameraThrough()
-    if cameraThroughLoop then task.cancel(cameraThroughLoop) end
-    
-    local deployables = workspace:FindFirstChild("Deployables")
-    if deployables then
-        for _, part in ipairs(deployables:GetDescendants()) do
-            if part:IsA("BasePart") then
-                part.Transparency = 0
-                part.CanCollide = true
-            end
-        end
-    end
-end
-
--- ================= ESP NORMAL =================
+-- ================= ESP NORMAL JUGADORES =================
 
 local function startESP()
     if espLoop then task.cancel(espLoop) end
@@ -274,7 +228,6 @@ end
 -- ================= ESP DIOSES =================
 
 local function playerHasGodGear(plr)
-    -- workspace.Players.[Nombre]: "God Legs", "God Chestplate", "God Halo"
     local wsPlayers = workspace:FindFirstChild("Players")
     if not wsPlayers then return false end
     
@@ -308,7 +261,6 @@ local function startGodESP()
                         local humanoid = character:FindFirstChild("Humanoid")
                         
                         if humanoidRootPart and humanoid then
-                            -- Color especial para dioses (por ejemplo, dorado)
                             local teamColor = Color3.fromRGB(255, 215, 0)
                             
                             local highlight = character:FindFirstChild("GOD_ESP_Highlight")
@@ -383,6 +335,210 @@ local function stopGodESP()
     print("✅ ESP DIOSES eliminado completamente")
 end
 
+-- ================= ESP ITEMS IMPORTANTES =================
+
+local function getItemHighlightColor(name)
+    if name == "Gold" then
+        return Color3.fromRGB(255, 215, 0)
+    elseif name == "Crystal Chunk" then
+        return Color3.fromRGB(0, 255, 255)
+    else
+        return Color3.fromRGB(255, 255, 255)
+    end
+end
+
+local function startItemsESP()
+    if itemsEspLoop then task.cancel(itemsEspLoop) end
+    
+    itemsEspLoop = task.spawn(function()
+        while itemsEspActive do
+            task.wait(0.15)
+            
+            for _, item in ipairs(ITEMS_FOLDER:GetChildren()) do
+                if importantItemNames[item.Name] then
+                    local part = item:IsA("BasePart") and item or item:FindFirstChildWhichIsA("BasePart", true)
+                    if part then
+                        local highlight = part:FindFirstChild("ITEM_ESP_Highlight")
+                        local color = getItemHighlightColor(item.Name)
+                        
+                        if not highlight then
+                            highlight = Instance.new("Highlight")
+                            highlight.Name = "ITEM_ESP_Highlight"
+                            highlight.Adornee = part
+                            highlight.FillColor = color
+                            highlight.OutlineColor = color
+                            highlight.FillTransparency = 0.6
+                            highlight.OutlineTransparency = 0.1
+                            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                            highlight.Parent = part
+                        else
+                            highlight.FillColor = color
+                            highlight.OutlineColor = color
+                        end
+                        
+                        local billboardGui = part:FindFirstChild("ITEM_ESP_Label")
+                        
+                        if not billboardGui then
+                            billboardGui = Instance.new("BillboardGui")
+                            billboardGui.Name = "ITEM_ESP_Label"
+                            billboardGui.Adornee = part
+                            billboardGui.Size = UDim2.new(0, 120, 0, 30)
+                            billboardGui.StudsOffset = Vector3.new(0, 2.5, 0)
+                            billboardGui.MaxDistance = math.huge
+                            billboardGui.AlwaysOnTop = true
+                            
+                            local textLabel = Instance.new("TextLabel")
+                            textLabel.Name = "ItemInfo"
+                            textLabel.Size = UDim2.new(1, 0, 1, 0)
+                            textLabel.BackgroundTransparency = 1
+                            textLabel.TextColor3 = color
+                            textLabel.TextSize = 12
+                            textLabel.Font = Enum.Font.GothamBold
+                            textLabel.TextStrokeTransparency = 0.3
+                            textLabel.TextScaled = false
+                            textLabel.Parent = billboardGui
+                            
+                            billboardGui.Parent = part
+                        end
+                        
+                        local label = billboardGui:FindFirstChild("ItemInfo")
+                        if label then
+                            label.Text = item.Name
+                            label.TextColor3 = color
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end
+
+local function stopItemsESP()
+    if itemsEspLoop then task.cancel(itemsEspLoop) end
+    
+    task.wait(0.1)
+    
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if (obj.Name == "ITEM_ESP_Highlight" or obj.Name == "ITEM_ESP_Label") then
+            pcall(function() obj:Destroy() end)
+        end
+    end
+    
+    print("✅ ESP Items Importantes eliminado completamente")
+end
+
+-- ================= ESP METEOR CORE =================
+
+local function startMeteorESP()
+    if meteorEspLoop then task.cancel(meteorEspLoop) end
+    
+    meteorEspLoop = task.spawn(function()
+        while meteorEspActive do
+            task.wait(0.2)
+            
+            local meteor = workspace:FindFirstChild("Meteor Core")
+            if meteor and (meteor:IsA("BasePart") or meteor:IsA("Model")) then
+                local adornee = meteor
+                if meteor:IsA("Model") then
+                    adornee = meteor:FindFirstChildWhichIsA("BasePart", true) or meteor
+                end
+                
+                if adornee then
+                    local highlight = adornee:FindFirstChild("METEOR_ESP_Highlight")
+                    
+                    if not highlight then
+                        highlight = Instance.new("Highlight")
+                        highlight.Name = "METEOR_ESP_Highlight"
+                        highlight.Adornee = adornee
+                        highlight.FillColor = Color3.fromRGB(255, 100, 100)
+                        highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
+                        highlight.FillTransparency = 0.5
+                        highlight.OutlineTransparency = 0.1
+                        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                        highlight.Parent = adornee
+                    end
+                    
+                    local billboardGui = adornee:FindFirstChild("METEOR_ESP_Label")
+                    
+                    if not billboardGui then
+                        billboardGui = Instance.new("BillboardGui")
+                        billboardGui.Name = "METEOR_ESP_Label"
+                        billboardGui.Adornee = adornee
+                        billboardGui.Size = UDim2.new(0, 140, 0, 35)
+                        billboardGui.StudsOffset = Vector3.new(0, 4, 0)
+                        billboardGui.MaxDistance = math.huge
+                        billboardGui.AlwaysOnTop = true
+                        
+                        local textLabel = Instance.new("TextLabel")
+                        textLabel.Name = "MeteorInfo"
+                        textLabel.Size = UDim2.new(1, 0, 1, 0)
+                        textLabel.BackgroundTransparency = 1
+                        textLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+                        textLabel.TextSize = 13
+                        textLabel.Font = Enum.Font.GothamBold
+                        textLabel.TextStrokeTransparency = 0.2
+                        textLabel.Text = "Meteor Core"
+                        textLabel.TextScaled = false
+                        textLabel.Parent = billboardGui
+                        
+                        billboardGui.Parent = adornee
+                    end
+                end
+            end
+        end
+    end)
+end
+
+local function stopMeteorESP()
+    if meteorEspLoop then task.cancel(meteorEspLoop) end
+    
+    task.wait(0.1)
+    
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if (obj.Name == "METEOR_ESP_Highlight" or obj.Name == "METEOR_ESP_Label") then
+            pcall(function() obj:Destroy() end)
+        end
+    end
+    
+    print("✅ ESP Meteor Core eliminado completamente")
+end
+
+-- ================= CAMERA NOCLIP (solo cámara visual, optimizado) =================
+
+local function setDeployablesTransparency(makeTransparent)
+    local deployables = workspace:FindFirstChild("Deployables")
+    if not deployables then return end
+    
+    for _, part in ipairs(deployables:GetDescendants()) do
+        if part:IsA("BasePart") then
+            if makeTransparent then
+                if part:GetAttribute("OriginalTransparency") == nil then
+                    part:SetAttribute("OriginalTransparency", part.Transparency)
+                end
+                part.Transparency = 0.8 -- casi invisibles pero se ven un poco
+            else
+                local original = part:GetAttribute("OriginalTransparency")
+                if original ~= nil then
+                    part.Transparency = original
+                    part:SetAttribute("OriginalTransparency", nil)
+                end
+            end
+        end
+    end
+end
+
+local function startCameraNoclip()
+    cameraNoclipActive = true
+    setDeployablesTransparency(true)
+    print("✅ Camera Noclip ACTIVADO")
+end
+
+local function stopCameraNoclip()
+    cameraNoclipActive = false
+    setDeployablesTransparency(false)
+    print("❌ Camera Noclip DESACTIVADO")
+end
+
 -- ============ AUTOPICKUP TAB ============
 
 AutopickupTab:CreateToggle({
@@ -431,21 +587,6 @@ MiscTab:CreateToggle({
 })
 
 MiscTab:CreateToggle({
-    Name = "Camera Through",
-    CurrentValue = false,
-    Callback = function(Value)
-        cameraThroughActive = Value
-        if cameraThroughActive then
-            startCameraThroughLoop()
-            print("✅ Camera Through ACTIVADO")
-        else
-            stopCameraThrough()
-            print("❌ Camera Through DESACTIVADO")
-        end
-    end,
-})
-
-MiscTab:CreateToggle({
     Name = "Player ESP",
     CurrentValue = false,
     Callback = function(Value)
@@ -471,6 +612,48 @@ MiscTab:CreateToggle({
         else
             stopGodESP()
             print("❌ ESP DIOSES DESACTIVADO")
+        end
+    end,
+})
+
+MiscTab:CreateToggle({
+    Name = "ESP Items Importantes",
+    CurrentValue = false,
+    Callback = function(Value)
+        itemsEspActive = Value
+        if itemsEspActive then
+            startItemsESP()
+            print("✅ ESP Items Importantes ACTIVADO")
+        else
+            stopItemsESP()
+            print("❌ ESP Items Importantes DESACTIVADO")
+        end
+    end,
+})
+
+MiscTab:CreateToggle({
+    Name = "ESP Meteor Core",
+    CurrentValue = false,
+    Callback = function(Value)
+        meteorEspActive = Value
+        if meteorEspActive then
+            startMeteorESP()
+            print("✅ ESP Meteor Core ACTIVADO")
+        else
+            stopMeteorESP()
+            print("❌ ESP Meteor Core DESACTIVADO")
+        end
+    end,
+})
+
+MiscTab:CreateToggle({
+    Name = "Camera Noclip",
+    CurrentValue = false,
+    Callback = function(Value)
+        if Value then
+            startCameraNoclip()
+        else
+            stopCameraNoclip()
         end
     end,
 })
