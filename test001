@@ -1,0 +1,402 @@
+-- AUTOPICKUP CON FILTRO DE ITEMS + MISC + ESP + ESP DIOSES (SIN CAMERA THROUGH)
+
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+    Name = "Autopickup Aspiradora",
+    LoadingTitle = "Cargando...",
+    LoadingSubtitle = "by Tu Script",
+    ShowText = "v1.0",
+    Theme = "Default"
+})
+
+local AutopickupTab = Window:CreateTab("Autopickup", 0)
+local MiscTab = Window:CreateTab("Misc", 0)
+
+-- Variables del script
+local rs = game:GetService("ReplicatedStorage")
+local Modules = rs:WaitForChild("Modules")
+local Packets = require(Modules:WaitForChild("Packets"))
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+local ITEMS_FOLDER = workspace:WaitForChild("Items")
+local PICKUP_DISTANCE = 25
+
+local pickupActive = false
+local pickupLoop = nil
+
+local deleteItemsActive = false
+local deleteItemsLoop = nil
+
+local espActive = false
+local espLoop = nil
+
+local godEspActive = false
+local godEspLoop = nil
+
+local playersWithESP = {}
+local playersWithGodESP = {}
+
+-- LISTA DE ITEMS CON FILTRO
+local itemFilters = {
+    ["Emerald"] = true,
+    ["Coal"] = true,
+    ["Crystal Chunk"] = true,
+    ["Pink Diamond"] = true,
+    ["Raw Gold"] = true,
+    ["Adurite"] = true,
+    ["Gold"] = true,
+    ["Iron"] = true,
+    ["Spirit Key"] = true,
+    ["Steel"] = true,
+    ["Magnetite"] = true,
+    ["Essence"] = true,
+    ["Bloodfruit"] = true,
+    ["Coin2"] = true,
+}
+
+local function getDistance(a, b)
+    return (a.Position - b.Position).Magnitude
+end
+
+local function getTeamColor(otherPlayer)
+    if otherPlayer.Team then
+        return otherPlayer.Team.TeamColor.Color
+    end
+    return Color3.fromRGB(255, 255, 255)
+end
+
+-- ================= AUTOPICKUP =================
+
+local function startPickupLoop()
+    if pickupLoop then task.cancel(pickupLoop) end
+    
+    pickupLoop = task.spawn(function()
+        while pickupActive do
+            task.wait(0.1)
+
+            local char = player.Character
+            if not char then continue end
+
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            if not hrp then continue end
+
+            for _, item in ipairs(ITEMS_FOLDER:GetChildren()) do
+                if not itemFilters[item.Name] then continue end
+                
+                local part = item:IsA("BasePart") and item or item:FindFirstChildWhichIsA("BasePart", true)
+                if not part then continue end
+
+                if getDistance(hrp, part) <= PICKUP_DISTANCE then
+                    local entityId = item:GetAttribute("EntityID")
+                    if entityId then
+                        pcall(function()
+                            Packets.Pickup.send(entityId)
+                        end)
+                    end
+                end
+            end
+        end
+    end)
+end
+
+-- ================= DELETE ITEMS =================
+
+local function startDeleteItemsLoop()
+    if deleteItemsLoop then task.cancel(deleteItemsLoop) end
+    
+    deleteItemsLoop = task.spawn(function()
+        while deleteItemsActive do
+            task.wait(0.2)
+            
+            for _, item in ipairs(ITEMS_FOLDER:GetChildren()) do
+                pcall(function()
+                    item:Destroy()
+                end)
+            end
+        end
+    end)
+end
+
+-- ================= ESP NORMAL =================
+
+local function startESP()
+    if espLoop then task.cancel(espLoop) end
+    playersWithESP = {}
+    
+    espLoop = task.spawn(function()
+        while espActive do
+            task.wait(0.1)
+            
+            for _, otherPlayer in ipairs(Players:GetPlayers()) do
+                if otherPlayer ~= player then
+                    local character = otherPlayer.Character
+                    if character then
+                        local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+                        local humanoid = character:FindFirstChild("Humanoid")
+                        
+                        if humanoidRootPart and humanoid then
+                            local teamColor = getTeamColor(otherPlayer)
+                            
+                            local highlight = character:FindFirstChild("ESP_Highlight")
+                            
+                            if not highlight then
+                                highlight = Instance.new("Highlight")
+                                highlight.Name = "ESP_Highlight"
+                                highlight.Adornee = character
+                                highlight.FillColor = teamColor
+                                highlight.OutlineColor = teamColor
+                                highlight.FillTransparency = 0.7
+                                highlight.OutlineTransparency = 0.3
+                                highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                                highlight.Parent = character
+                            else
+                                highlight.FillColor = teamColor
+                                highlight.OutlineColor = teamColor
+                            end
+                            
+                            local billboardGui = character:FindFirstChild("ESP_Label")
+                            
+                            if not billboardGui then
+                                billboardGui = Instance.new("BillboardGui")
+                                billboardGui.Name = "ESP_Label"
+                                billboardGui.Adornee = humanoidRootPart
+                                billboardGui.Size = UDim2.new(0, 120, 0, 40)
+                                billboardGui.StudsOffset = Vector3.new(0, 3, 0)
+                                billboardGui.MaxDistance = math.huge
+                                billboardGui.AlwaysOnTop = true
+                                
+                                local textLabel = Instance.new("TextLabel")
+                                textLabel.Name = "PlayerInfo"
+                                textLabel.Size = UDim2.new(1, 0, 1, 0)
+                                textLabel.BackgroundTransparency = 1
+                                textLabel.TextColor3 = teamColor
+                                textLabel.TextSize = 12
+                                textLabel.Font = Enum.Font.GothamBold
+                                textLabel.TextStrokeTransparency = 0.3
+                                textLabel.TextScaled = false
+                                textLabel.Parent = billboardGui
+                                
+                                billboardGui.Parent = character
+                            end
+                            
+                            local label = billboardGui:FindFirstChild("PlayerInfo")
+                            if label then
+                                label.Text = otherPlayer.Name .. " - " .. math.floor(humanoid.Health) .. "HP"
+                                label.TextColor3 = teamColor
+                            end
+                            
+                            playersWithESP[otherPlayer.UserId] = true
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end
+
+local function stopESP()
+    if espLoop then task.cancel(espLoop) end
+    
+    task.wait(0.1)
+    
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if (obj.Name == "ESP_Highlight" or obj.Name == "ESP_Label") then
+            pcall(function() obj:Destroy() end)
+        end
+    end
+    
+    playersWithESP = {}
+    print("✅ ESP eliminado completamente")
+end
+
+-- ================= ESP DIOSES =================
+
+local function playerHasGodGear(plr)
+    -- workspace.Players.[Nombre]: "God Legs", "God Chestplate", "God Halo"
+    local wsPlayers = workspace:FindFirstChild("Players")
+    if not wsPlayers then return false end
+    
+    local charFolder = wsPlayers:FindFirstChild(plr.Name)
+    if not charFolder then return false end
+    
+    local hasLegs = charFolder:FindFirstChild("God Legs")
+    local hasChest = charFolder:FindFirstChild("God Chestplate")
+    local hasHalo = charFolder:FindFirstChild("God Halo")
+    
+    if hasLegs or hasChest or hasHalo then
+        return true
+    end
+    
+    return false
+end
+
+local function startGodESP()
+    if godEspLoop then task.cancel(godEspLoop) end
+    playersWithGodESP = {}
+    
+    godEspLoop = task.spawn(function()
+        while godEspActive do
+            task.wait(0.15)
+            
+            for _, otherPlayer in ipairs(Players:GetPlayers()) do
+                if otherPlayer ~= player then
+                    local character = otherPlayer.Character
+                    if character and playerHasGodGear(otherPlayer) then
+                        local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+                        local humanoid = character:FindFirstChild("Humanoid")
+                        
+                        if humanoidRootPart and humanoid then
+                            local teamColor = Color3.fromRGB(255, 215, 0) -- dorado
+                            
+                            local highlight = character:FindFirstChild("GOD_ESP_Highlight")
+                            
+                            if not highlight then
+                                highlight = Instance.new("Highlight")
+                                highlight.Name = "GOD_ESP_Highlight"
+                                highlight.Adornee = character
+                                highlight.FillColor = teamColor
+                                highlight.OutlineColor = teamColor
+                                highlight.FillTransparency = 0.5
+                                highlight.OutlineTransparency = 0.1
+                                highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                                highlight.Parent = character
+                            else
+                                highlight.FillColor = teamColor
+                                highlight.OutlineColor = teamColor
+                            end
+                            
+                            local billboardGui = character:FindFirstChild("GOD_ESP_Label")
+                            
+                            if not billboardGui then
+                                billboardGui = Instance.new("BillboardGui")
+                                billboardGui.Name = "GOD_ESP_Label"
+                                billboardGui.Adornee = humanoidRootPart
+                                billboardGui.Size = UDim2.new(0, 150, 0, 45)
+                                billboardGui.StudsOffset = Vector3.new(0, 4, 0)
+                                billboardGui.MaxDistance = math.huge
+                                billboardGui.AlwaysOnTop = true
+                                
+                                local textLabel = Instance.new("TextLabel")
+                                textLabel.Name = "GodPlayerInfo"
+                                textLabel.Size = UDim2.new(1, 0, 1, 0)
+                                textLabel.BackgroundTransparency = 1
+                                textLabel.TextColor3 = teamColor
+                                textLabel.TextSize = 13
+                                textLabel.Font = Enum.Font.GothamBold
+                                textLabel.TextStrokeTransparency = 0.2
+                                textLabel.TextScaled = false
+                                textLabel.Parent = billboardGui
+                                
+                                billboardGui.Parent = character
+                            end
+                            
+                            local label = billboardGui:FindFirstChild("GodPlayerInfo")
+                            if label then
+                                label.Text = "[DIOS] " .. otherPlayer.Name .. " - " .. math.floor(humanoid.Health) .. "HP"
+                                label.TextColor3 = teamColor
+                            end
+                            
+                            playersWithGodESP[otherPlayer.UserId] = true
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end
+
+local function stopGodESP()
+    if godEspLoop then task.cancel(godEspLoop) end
+    
+    task.wait(0.1)
+    
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if (obj.Name == "GOD_ESP_Highlight" or obj.Name == "GOD_ESP_Label") then
+            pcall(function() obj:Destroy() end)
+        end
+    end
+    
+    playersWithGodESP = {}
+    print("✅ ESP DIOSES eliminado completamente")
+end
+
+-- ============ AUTOPICKUP TAB ============
+
+AutopickupTab:CreateToggle({
+    Name = "Activar Autopickup",
+    CurrentValue = false,
+    Callback = function(Value)
+        pickupActive = Value
+        if pickupActive then
+            startPickupLoop()
+            print("✅ Autopickup ACTIVADO")
+        else
+            if pickupLoop then task.cancel(pickupLoop) end
+            print("❌ Autopickup DESACTIVADO")
+        end
+    end,
+})
+
+AutopickupTab:CreateDivider()
+
+for itemName, _ in pairs(itemFilters) do
+    AutopickupTab:CreateToggle({
+        Name = itemName,
+        CurrentValue = true,
+        Callback = function(Value)
+            itemFilters[itemName] = Value
+            print(itemName .. ": " .. (Value and "✅ ACTIVADO" or "❌ DESACTIVADO"))
+        end,
+    })
+end
+
+-- ============ MISC TAB (SIN CAMERA THROUGH) ============
+
+MiscTab:CreateToggle({
+    Name = "Delete All Items",
+    CurrentValue = false,
+    Callback = function(Value)
+        deleteItemsActive = Value
+        if deleteItemsActive then
+            startDeleteItemsLoop()
+            print("✅ Delete All Items ACTIVADO")
+        else
+            if deleteItemsLoop then task.cancel(deleteItemsLoop) end
+            print("❌ Delete All Items DESACTIVADO")
+        end
+    end,
+})
+
+MiscTab:CreateToggle({
+    Name = "Player ESP",
+    CurrentValue = false,
+    Callback = function(Value)
+        espActive = Value
+        if espActive then
+            startESP()
+            print("✅ Player ESP ACTIVADO")
+        else
+            stopESP()
+            print("❌ Player ESP DESACTIVADO")
+        end
+    end,
+})
+
+MiscTab:CreateToggle({
+    Name = "ESP DIOSES",
+    CurrentValue = false,
+    Callback = function(Value)
+        godEspActive = Value
+        if godEspActive then
+            startGodESP()
+            print("✅ ESP DIOSES ACTIVADO")
+        else
+            stopGodESP()
+            print("❌ ESP DIOSES DESACTIVADO")
+        end
+    end,
+})
+
+print("✅ Script cargado correctamente")
