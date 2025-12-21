@@ -1,4 +1,5 @@
--- AUTOPICKUP CON FILTRO DE ITEMS + MISC + ESP + ESP DIOSES + ESP ITEMS IMPORTANTES + ESP METEOR CORE + CAMERA NOCLIP
+-- AUTOPICKUP CON FILTRO DE ITEMS + MISC + ESP + ESP DIOSES + ESP ITEMS IMPORTANTES + ESP METEOR CORE
+-- + CAMERA NOCLIP + NOCLIP PUERTAS
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
@@ -13,7 +14,7 @@ local Window = Rayfield:CreateWindow({
 local AutopickupTab = Window:CreateTab("Autopickup", 0)
 local MiscTab = Window:CreateTab("Misc", 0)
 
--- Variables del script
+-- Servicios
 local rs = game:GetService("ReplicatedStorage")
 local Modules = rs:WaitForChild("Modules")
 local Packets = require(Modules:WaitForChild("Packets"))
@@ -23,6 +24,7 @@ local player = Players.LocalPlayer
 local ITEMS_FOLDER = workspace:WaitForChild("Items")
 local PICKUP_DISTANCE = 25
 
+-- Estados
 local pickupActive = false
 local pickupLoop = nil
 
@@ -42,6 +44,9 @@ local meteorEspActive = false
 local meteorEspLoop = nil
 
 local cameraNoclipActive = false
+local cameraNoclipLoop = nil
+
+local doorNoclipActive = false
 
 local playersWithESP = {}
 local playersWithGodESP = {}
@@ -103,7 +108,7 @@ local function startPickupLoop()
                 if not part then continue end
 
                 if getDistance(hrp, part) <= PICKUP_DISTANCE then
-                    local entityId = item:SetAttribute("EntityID") and item:GetAttribute("EntityID")
+                    local entityId = item:GetAttribute("EntityID")
                     if entityId then
                         pcall(function()
                             Packets.Pickup.send(entityId)
@@ -216,7 +221,7 @@ local function stopESP()
     task.wait(0.1)
     
     for _, obj in ipairs(workspace:GetDescendants()) do
-        if (obj.Name == "ESP_Highlight" or obj.Name == "ESP_Label") then
+        if obj.Name == "ESP_Highlight" or obj.Name == "ESP_Label" then
             pcall(function() obj:Destroy() end)
         end
     end
@@ -238,11 +243,7 @@ local function playerHasGodGear(plr)
     local hasChest = charFolder:FindFirstChild("God Chestplate")
     local hasHalo = charFolder:FindFirstChild("God Halo")
     
-    if hasLegs or hasChest or hasHalo then
-        return true
-    end
-    
-    return false
+    return hasLegs or hasChest or hasHalo
 end
 
 local function startGodESP()
@@ -326,7 +327,7 @@ local function stopGodESP()
     task.wait(0.1)
     
     for _, obj in ipairs(workspace:GetDescendants()) do
-        if (obj.Name == "GOD_ESP_Highlight" or obj.Name == "GOD_ESP_Label") then
+        if obj.Name == "GOD_ESP_Highlight" or obj.Name == "GOD_ESP_Label" then
             pcall(function() obj:Destroy() end)
         end
     end
@@ -419,7 +420,7 @@ local function stopItemsESP()
     task.wait(0.1)
     
     for _, obj in ipairs(workspace:GetDescendants()) do
-        if (obj.Name == "ITEM_ESP_Highlight" or obj.Name == "ITEM_ESP_Label") then
+        if obj.Name == "ITEM_ESP_Highlight" or obj.Name == "ITEM_ESP_Label" then
             pcall(function() obj:Destroy() end)
         end
     end
@@ -477,7 +478,6 @@ local function startMeteorESP()
                         textLabel.TextSize = 13
                         textLabel.Font = Enum.Font.GothamBold
                         textLabel.TextStrokeTransparency = 0.2
-                        textLabel.Text = "Meteor Core"
                         textLabel.TextScaled = false
                         textLabel.Parent = billboardGui
                         
@@ -495,7 +495,7 @@ local function stopMeteorESP()
     task.wait(0.1)
     
     for _, obj in ipairs(workspace:GetDescendants()) do
-        if (obj.Name == "METEOR_ESP_Highlight" or obj.Name == "METEOR_ESP_Label") then
+        if obj.Name == "METEOR_ESP_Highlight" or obj.Name == "METEOR_ESP_Label" then
             pcall(function() obj:Destroy() end)
         end
     end
@@ -503,7 +503,7 @@ local function stopMeteorESP()
     print("✅ ESP Meteor Core eliminado completamente")
 end
 
--- ================= CAMERA NOCLIP (solo cámara visual, optimizado) =================
+-- ================= CAMERA NOCLIP (Deployables) =================
 
 local function setDeployablesTransparency(makeTransparent)
     local deployables = workspace:FindFirstChild("Deployables")
@@ -515,7 +515,7 @@ local function setDeployablesTransparency(makeTransparent)
                 if part:GetAttribute("OriginalTransparency") == nil then
                     part:SetAttribute("OriginalTransparency", part.Transparency)
                 end
-                part.Transparency = 0.8 -- casi invisibles pero se ven un poco
+                part.Transparency = 0.8
             else
                 local original = part:GetAttribute("OriginalTransparency")
                 if original ~= nil then
@@ -529,14 +529,110 @@ end
 
 local function startCameraNoclip()
     cameraNoclipActive = true
+    
+    if cameraNoclipLoop then
+        task.cancel(cameraNoclipLoop)
+        cameraNoclipLoop = nil
+    end
+    
     setDeployablesTransparency(true)
+    
+    cameraNoclipLoop = task.spawn(function()
+        while cameraNoclipActive do
+            task.wait(1.5)
+            setDeployablesTransparency(true)
+        end
+    end)
+    
     print("✅ Camera Noclip ACTIVADO")
 end
 
 local function stopCameraNoclip()
     cameraNoclipActive = false
+    
+    if cameraNoclipLoop then
+        task.cancel(cameraNoclipLoop)
+        cameraNoclipLoop = nil
+    end
+    
     setDeployablesTransparency(false)
     print("❌ Camera Noclip DESACTIVADO")
+end
+
+-- ================= NOCLIP PUERTAS (todas las Door en workspace.Deployables) =================
+
+local function setDoorsNoclip(enabled)
+    local deployables = workspace:FindFirstChild("Deployables")
+    if not deployables then
+        print("⚠️ No existe workspace.Deployables")
+        return
+    end
+
+    local doorsFound = 0
+
+    for _, dep in ipairs(deployables:GetChildren()) do
+        -- Partes llamadas Door
+        for _, obj in ipairs(dep:GetDescendants()) do
+            if obj:IsA("BasePart") and obj.Name == "Door" then
+                if enabled then
+                    if obj:GetAttribute("OriginalDoorCollide") == nil then
+                        obj:SetAttribute("OriginalDoorCollide", obj.CanCollide)
+                    end
+                    if obj:GetAttribute("OriginalDoorTransparency") == nil then
+                        obj:SetAttribute("OriginalDoorTransparency", obj.Transparency)
+                    end
+                    obj.CanCollide = false
+                    obj.Transparency = 0.8
+                else
+                    local oc = obj:GetAttribute("OriginalDoorCollide")
+                    local ot = obj:GetAttribute("OriginalDoorTransparency")
+                    if oc ~= nil then
+                        obj.CanCollide = oc
+                        obj:SetAttribute("OriginalDoorCollide", nil)
+                    end
+                    if ot ~= nil then
+                        obj.Transparency = ot
+                        obj:SetAttribute("OriginalDoorTransparency", nil)
+                    end
+                end
+                doorsFound += 1
+            end
+        end
+
+        -- Modelos Door con partes dentro
+        for _, obj in ipairs(dep:GetDescendants()) do
+            if obj:IsA("Model") and obj.Name == "Door" then
+                for _, part in ipairs(obj:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        if enabled then
+                            if part:GetAttribute("OriginalDoorCollide") == nil then
+                                part:SetAttribute("OriginalDoorCollide", part.CanCollide)
+                            end
+                            if part:GetAttribute("OriginalDoorTransparency") == nil then
+                                part:SetAttribute("OriginalDoorTransparency", part.Transparency)
+                            end
+                            part.CanCollide = false
+                            part.Transparency = 0.8
+                        else
+                            local oc = part:GetAttribute("OriginalDoorCollide")
+                            local ot = part:GetAttribute("OriginalDoorTransparency")
+                            if oc ~= nil then
+                                part.CanCollide = oc
+                                part:SetAttribute("OriginalDoorCollide", nil)
+                            end
+                            if ot ~= nil then
+                                part.Transparency = ot
+                                part:SetAttribute("OriginalDoorTransparency", nil)
+                            end
+                        end
+                        doorsFound += 1
+                    end
+                end
+            end
+        end
+    end
+
+    print((enabled and "✅ Noclip Puertas ACTIVADO, puertas tocadas: " or "❌ Noclip Puertas DESACTIVADO, puertas restauradas: ") .. doorsFound)
 end
 
 -- ============ AUTOPICKUP TAB ============
@@ -655,6 +751,15 @@ MiscTab:CreateToggle({
         else
             stopCameraNoclip()
         end
+    end,
+})
+
+MiscTab:CreateToggle({
+    Name = "Noclip Puertas",
+    CurrentValue = false,
+    Callback = function(Value)
+        doorNoclipActive = Value
+        setDoorsNoclip(doorNoclipActive)
     end,
 })
 
