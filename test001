@@ -1,5 +1,5 @@
--- AUTOPICKUP CON FILTRO DE ITEMS + MISC + ESP + ESP DIOSES + ESP ITEMS IMPORTANTES + ESP METEOR CORE
--- + CAMERA NOCLIP + NOCLIP PUERTAS + SPEED CFRAME
+-- AUTOPICKUP + MISC + ESP + ESP DIOSES + ESP ITEMS IMPORTANTES + ESP METEOR CORE
+-- + CAMERA NOCLIP + NOCLIP PUERTAS + SPEED CFRAME + TP DIMENSIONES
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
@@ -13,6 +13,7 @@ local Window = Rayfield:CreateWindow({
 
 local AutopickupTab = Window:CreateTab("Autopickup", 0)
 local MiscTab = Window:CreateTab("Misc", 0)
+local BlackHoleTab = Window:CreateTab("el oyo negro", 0)
 
 -- Servicios
 local rs = game:GetService("ReplicatedStorage")
@@ -20,10 +21,18 @@ local Modules = rs:WaitForChild("Modules")
 local Packets = require(Modules:WaitForChild("Packets"))
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local TeleportService = game:GetService("TeleportService")
 local player = Players.LocalPlayer
 
 local ITEMS_FOLDER = workspace:WaitForChild("Items")
 local PICKUP_DISTANCE = 25
+
+-- PlaceIds
+local MAIN_PLACE_ID      = 11729688377      -- Mundo normal
+local DIMENSION_PLACE_ID = 11879754496      -- Dimensión / Voidness
+local STORY_PLACE_ID     = 18596007812      -- Modo historia
+local TRADE_PLACE_ID     = 71090798546210   -- Trade plaza
+local BOSS_PLACE_ID      = 114178392375273  -- Bossfight
 
 -- Estados
 local pickupActive = false
@@ -569,7 +578,7 @@ local function stopCameraNoclip()
     print("❌ Camera Noclip DESACTIVADO")
 end
 
--- ================= NOCLIP PUERTAS (todas las Door en workspace.Deployables) =================
+-- ================= NOCLIP PUERTAS =================
 
 local function setDoorsNoclip(enabled)
     local deployables = workspace:FindFirstChild("Deployables")
@@ -796,6 +805,43 @@ MiscTab:CreateToggle({
     Callback = function(Value)
         speedCFrameActive = Value
         print(Value and "✅ Speed CFrame ACTIVADO" or "❌ Speed CFrame DESACTIVADO")
+    end,
+})
+
+-- ============ TAB "EL OYO NEGRO" (TPs) ============
+
+BlackHoleTab:CreateButton({
+    Name = "TP a Dimensión (Voidness)",
+    Callback = function()
+        TeleportService:Teleport(DIMENSION_PLACE_ID, player)
+    end,
+})
+
+BlackHoleTab:CreateButton({
+    Name = "TP a Mundo Normal",
+    Callback = function()
+        TeleportService:Teleport(MAIN_PLACE_ID, player)
+    end,
+})
+
+BlackHoleTab:CreateButton({
+    Name = "TP a Modo Historia",
+    Callback = function()
+        TeleportService:Teleport(STORY_PLACE_ID, player)
+    end,
+})
+
+BlackHoleTab:CreateButton({
+    Name = "TP a Trade Plaza",
+    Callback = function()
+        TeleportService:Teleport(TRADE_PLACE_ID, player)
+    end,
+})
+
+BlackHoleTab:CreateButton({
+    Name = "TP a Bossfight",
+    Callback = function()
+        TeleportService:Teleport(BOSS_PLACE_ID, player)
     end,
 })
 
