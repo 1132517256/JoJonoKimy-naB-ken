@@ -1,5 +1,5 @@
 -- AUTOPICKUP CON FILTRO DE ITEMS + MISC + ESP + ESP DIOSES + ESP ITEMS IMPORTANTES + ESP METEOR CORE
--- + CAMERA NOCLIP + NOCLIP PUERTAS
+-- + CAMERA NOCLIP + NOCLIP PUERTAS + SPEED CFRAME 21 (ajustado)
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
@@ -19,6 +19,7 @@ local rs = game:GetService("ReplicatedStorage")
 local Modules = rs:WaitForChild("Modules")
 local Packets = require(Modules:WaitForChild("Packets"))
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 
 local ITEMS_FOLDER = workspace:WaitForChild("Items")
@@ -47,6 +48,10 @@ local cameraNoclipActive = false
 local cameraNoclipLoop = nil
 
 local doorNoclipActive = false
+
+local speedCFrameActive = false
+local speedValue = 0.2080
+local baseSpeedFactor = 0.2080
 
 local playersWithESP = {}
 local playersWithGodESP = {}
@@ -84,6 +89,11 @@ local function getTeamColor(otherPlayer)
         return otherPlayer.Team.TeamColor.Color
     end
     return Color3.fromRGB(255, 255, 255)
+end
+
+local function getHumanoid()
+    local char = player.Character or player.CharacterAdded:Wait()
+    return char:WaitForChild("Humanoid")
 end
 
 -- ================= AUTOPICKUP =================
@@ -241,7 +251,7 @@ local function playerHasGodGear(plr)
     
     local hasLegs = charFolder:FindFirstChild("God Legs")
     local hasChest = charFolder:FindFirstChild("God Chestplate")
-    local hasHalo = charFolder:FindFirstChild("God Halo")
+    local hasHalo = charFolder:FindChild("God Halo")
     
     return hasLegs or hasChest or hasHalo
 end
@@ -428,7 +438,7 @@ local function stopItemsESP()
     print("✅ ESP Items Importantes eliminado completamente")
 end
 
--- ================= ESP METEOR CORE =================
+-- ================= ESP METEOR CORE + CRYSTAL METEOR CORE =================
 
 local function startMeteorESP()
     if meteorEspLoop then task.cancel(meteorEspLoop) end
@@ -437,54 +447,64 @@ local function startMeteorESP()
         while meteorEspActive do
             task.wait(0.2)
             
-            local meteor = workspace:FindFirstChild("Meteor Core")
-            if meteor and (meteor:IsA("BasePart") or meteor:IsA("Model")) then
-                local adornee = meteor
-                if meteor:IsA("Model") then
-                    adornee = meteor:FindFirstChildWhichIsA("BasePart", true) or meteor
+            local function handleMeteor(obj)
+                if not obj then return end
+                if not (obj:IsA("BasePart") or obj:IsA("Model")) then return end
+                
+                local adornee = obj
+                if obj:IsA("Model") then
+                    adornee = obj:FindFirstChildWhichIsA("BasePart", true) or obj
+                end
+                if not adornee then return end
+                
+                local highlight = adornee:FindFirstChild("METEOR_ESP_Highlight")
+                
+                if not highlight then
+                    highlight = Instance.new("Highlight")
+                    highlight.Name = "METEOR_ESP_Highlight"
+                    highlight.Adornee = adornee
+                    highlight.FillColor = Color3.fromRGB(255, 100, 100)
+                    highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
+                    highlight.FillTransparency = 0.5
+                    highlight.OutlineTransparency = 0.1
+                    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                    highlight.Parent = adornee
                 end
                 
-                if adornee then
-                    local highlight = adornee:FindFirstChild("METEOR_ESP_Highlight")
+                local billboardGui = adornee:FindFirstChild("METEOR_ESP_Label")
+                
+                if not billboardGui then
+                    billboardGui = Instance.new("BillboardGui")
+                    billboardGui.Name = "METEOR_ESP_Label"
+                    billboardGui.Adornee = adornee
+                    billboardGui.Size = UDim2.new(0, 140, 0, 35)
+                    billboardGui.StudsOffset = Vector3.new(0, 4, 0)
+                    billboardGui.MaxDistance = math.huge
+                    billboardGui.AlwaysOnTop = true
                     
-                    if not highlight then
-                        highlight = Instance.new("Highlight")
-                        highlight.Name = "METEOR_ESP_Highlight"
-                        highlight.Adornee = adornee
-                        highlight.FillColor = Color3.fromRGB(255, 100, 100)
-                        highlight.OutlineColor = Color3.fromRGB(255, 0, 0)
-                        highlight.FillTransparency = 0.5
-                        highlight.OutlineTransparency = 0.1
-                        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                        highlight.Parent = adornee
-                    end
+                    local textLabel = Instance.new("TextLabel")
+                    textLabel.Name = "MeteorInfo"
+                    textLabel.Size = UDim2.new(1, 0, 1, 0)
+                    textLabel.BackgroundTransparency = 1
+                    textLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+                    textLabel.TextSize = 13
+                    textLabel.Font = Enum.Font.GothamBold
+                    textLabel.TextStrokeTransparency = 0.2
+                    textLabel.TextScaled = false
+                    textLabel.Text = obj.Name -- "Meteor Core" o "Crystal Meteor Core"
+                    textLabel.Parent = billboardGui
                     
-                    local billboardGui = adornee:FindFirstChild("METEOR_ESP_Label")
-                    
-                    if not billboardGui then
-                        billboardGui = Instance.new("BillboardGui")
-                        billboardGui.Name = "METEOR_ESP_Label"
-                        billboardGui.Adornee = adornee
-                        billboardGui.Size = UDim2.new(0, 140, 0, 35)
-                        billboardGui.StudsOffset = Vector3.new(0, 4, 0)
-                        billboardGui.MaxDistance = math.huge
-                        billboardGui.AlwaysOnTop = true
-                        
-                        local textLabel = Instance.new("TextLabel")
-                        textLabel.Name = "MeteorInfo"
-                        textLabel.Size = UDim2.new(1, 0, 1, 0)
-                        textLabel.BackgroundTransparency = 1
-                        textLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
-                        textLabel.TextSize = 13
-                        textLabel.Font = Enum.Font.GothamBold
-                        textLabel.TextStrokeTransparency = 0.2
-                        textLabel.TextScaled = false
-                        textLabel.Parent = billboardGui
-                        
-                        billboardGui.Parent = adornee
-                    end
+                    billboardGui.Parent = adornee
+                else
+                    local lbl = billboardGui:FindFirstChild("MeteorInfo")
+                    if lbl then lbl.Text = obj.Name end
                 end
             end
+            
+            -- Meteor Core normal
+            handleMeteor(workspace:FindFirstChild("Meteor Core"))
+            -- Crystal Meteor Core extra
+            handleMeteor(workspace:FindFirstChild("Crystal Meteor Core"))
         end
     end)
 end
@@ -500,7 +520,7 @@ local function stopMeteorESP()
         end
     end
     
-    print("✅ ESP Meteor Core eliminado completamente")
+    print("✅ ESP Meteor Cores eliminado completamente")
 end
 
 -- ================= CAMERA NOCLIP (Deployables) =================
@@ -635,6 +655,25 @@ local function setDoorsNoclip(enabled)
     print((enabled and "✅ Noclip Puertas ACTIVADO, puertas tocadas: " or "❌ Noclip Puertas DESACTIVADO, puertas restauradas: ") .. doorsFound)
 end
 
+-- ================= SPEED CFRAME =================
+
+RunService.RenderStepped:Connect(function(dt)
+    if not speedCFrameActive then return end
+
+    local char = player.Character
+    if not char then return end
+
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hrp or not hum then return end
+
+    local moveDir = hum.MoveDirection
+    if moveDir.Magnitude > 0 then
+        local delta = moveDir.Unit * speedValue * baseSpeedFactor
+        hrp.CFrame = hrp.CFrame + Vector3.new(delta.X, 0, delta.Z)
+    end
+end)
+
 -- ============ AUTOPICKUP TAB ============
 
 AutopickupTab:CreateToggle({
@@ -734,10 +773,10 @@ MiscTab:CreateToggle({
         meteorEspActive = Value
         if meteorEspActive then
             startMeteorESP()
-            print("✅ ESP Meteor Core ACTIVADO")
+            print("✅ ESP Meteor Core(s) ACTIVADO")
         else
             stopMeteorESP()
-            print("❌ ESP Meteor Core DESACTIVADO")
+            print("❌ ESP Meteor Core(s) DESACTIVADO")
         end
     end,
 })
@@ -760,6 +799,15 @@ MiscTab:CreateToggle({
     Callback = function(Value)
         doorNoclipActive = Value
         setDoorsNoclip(doorNoclipActive)
+    end,
+})
+
+MiscTab:CreateToggle({
+    Name = "Speed CFrame",
+    CurrentValue = false,
+    Callback = function(Value)
+        speedCFrameActive = Value
+        print(Value and "✅ Speed CFrame ACTIVADO" or "❌ Speed CFrame DESACTIVADO")
     end,
 })
 
