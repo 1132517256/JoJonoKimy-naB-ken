@@ -1,5 +1,5 @@
 -- AUTOPICKUP CON FILTRO DE ITEMS + MISC + ESP + ESP DIOSES + ESP ITEMS IMPORTANTES + ESP METEOR CORE
--- + CAMERA NOCLIP + NOCLIP PUERTAS + SPEED CFRAME 21 (ajustado)
+-- + CAMERA NOCLIP + NOCLIP PUERTAS + SPEED CFRAME
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
@@ -89,11 +89,6 @@ local function getTeamColor(otherPlayer)
         return otherPlayer.Team.TeamColor.Color
     end
     return Color3.fromRGB(255, 255, 255)
-end
-
-local function getHumanoid()
-    local char = player.Character or player.CharacterAdded:Wait()
-    return char:WaitForChild("Humanoid")
 end
 
 -- ================= AUTOPICKUP =================
@@ -249,11 +244,11 @@ local function playerHasGodGear(plr)
     local charFolder = wsPlayers:FindFirstChild(plr.Name)
     if not charFolder then return false end
     
-    local hasLegs = charFolder:FindFirstChild("God Legs")
+    local hasLegs  = charFolder:FindFirstChild("God Legs")
     local hasChest = charFolder:FindFirstChild("God Chestplate")
-    local hasHalo = charFolder:FindChild("God Halo")
+    local hasHalo  = charFolder:FindFirstChild("God Halo")
     
-    return hasLegs or hasChest or hasHalo
+    return (hasLegs ~= nil) or (hasChest ~= nil) or (hasHalo ~= nil)
 end
 
 local function startGodESP()
@@ -275,7 +270,6 @@ local function startGodESP()
                             local teamColor = Color3.fromRGB(255, 215, 0)
                             
                             local highlight = character:FindFirstChild("GOD_ESP_Highlight")
-                            
                             if not highlight then
                                 highlight = Instance.new("Highlight")
                                 highlight.Name = "GOD_ESP_Highlight"
@@ -292,7 +286,6 @@ local function startGodESP()
                             end
                             
                             local billboardGui = character:FindFirstChild("GOD_ESP_Label")
-                            
                             if not billboardGui then
                                 billboardGui = Instance.new("BillboardGui")
                                 billboardGui.Name = "GOD_ESP_Label"
@@ -333,7 +326,6 @@ end
 
 local function stopGodESP()
     if godEspLoop then task.cancel(godEspLoop) end
-    
     task.wait(0.1)
     
     for _, obj in ipairs(workspace:GetDescendants()) do
@@ -491,7 +483,7 @@ local function startMeteorESP()
                     textLabel.Font = Enum.Font.GothamBold
                     textLabel.TextStrokeTransparency = 0.2
                     textLabel.TextScaled = false
-                    textLabel.Text = obj.Name -- "Meteor Core" o "Crystal Meteor Core"
+                    textLabel.Text = obj.Name
                     textLabel.Parent = billboardGui
                     
                     billboardGui.Parent = adornee
@@ -501,9 +493,7 @@ local function startMeteorESP()
                 end
             end
             
-            -- Meteor Core normal
             handleMeteor(workspace:FindFirstChild("Meteor Core"))
-            -- Crystal Meteor Core extra
             handleMeteor(workspace:FindFirstChild("Crystal Meteor Core"))
         end
     end)
@@ -591,7 +581,6 @@ local function setDoorsNoclip(enabled)
     local doorsFound = 0
 
     for _, dep in ipairs(deployables:GetChildren()) do
-        -- Partes llamadas Door
         for _, obj in ipairs(dep:GetDescendants()) do
             if obj:IsA("BasePart") and obj.Name == "Door" then
                 if enabled then
@@ -619,7 +608,6 @@ local function setDoorsNoclip(enabled)
             end
         end
 
-        -- Modelos Door con partes dentro
         for _, obj in ipairs(dep:GetDescendants()) do
             if obj:IsA("Model") and obj.Name == "Door" then
                 for _, part in ipairs(obj:GetDescendants()) do
