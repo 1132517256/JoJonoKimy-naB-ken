@@ -1,5 +1,5 @@
 -- AUTOPICKUP + MISC + ESP + ESP DIOSES + ESP ITEMS IMPORTANTES + ESP METEOR CORE
--- + CAMERA NOCLIP + NOCLIP PUERTAS + SPEED CFRAME + TP DIMENSIONES + EXTRAS ESP DIOSES MAPA
+-- + CAMERA NOCLIP + NOCLIP PUERTAS (LOOP) + SPEED CFRAME + TP DIMENSIONES + EXTRAS ESP DIOSES MAPA
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
@@ -7,7 +7,7 @@ local Window = Rayfield:CreateWindow({
     Name = "Autopickup Aspiradora",
     LoadingTitle = "Cargando...",
     LoadingSubtitle = "by Tu Script",
-    ShowText = "v1.0",
+    ShowText = "v69",
     Theme = "Default"
 })
 
@@ -58,12 +58,12 @@ local cameraNoclipActive = false
 local cameraNoclipLoop = nil
 
 local doorNoclipActive = false
+local doorNoclipConn = nil
 
 local speedCFrameActive = false
-local speedValue = 0.2080
-local baseSpeedFactor = 0.2080
+local speedValue = 0.2025
+local baseSpeedFactor = 0.2025
 
--- ESP dioses en workspace.Resources
 local mapGodsEspActive = false
 local mapGodsEspLoop = nil
 
@@ -86,7 +86,7 @@ local itemFilters = {
     ["Essence"] = true,
     ["Bloodfruit"] = true,
     ["Coin2"] = true,
-    ["Void Shard"] = true, -- NUEVO ITEM AUTOPICK
+    ["Void Shard"] = true,
 }
 
 -- ITEMS IMPORTANTES PARA ESP
@@ -680,21 +680,16 @@ local function stopCameraNoclip()
     print("❌ Camera Noclip DESACTIVADO")
 end
 
--- ================= NOCLIP PUERTAS =================
+-- ================= NOCLIP PUERTAS (LOOP) =================
 
-local function setDoorsNoclip(enabled)
+local function applyDoorNoclip()
     local deployables = workspace:FindFirstChild("Deployables")
-    if not deployables then
-        print("⚠️ No existe workspace.Deployables")
-        return
-    end
-
-    local doorsFound = 0
+    if not deployables then return end
 
     for _, dep in ipairs(deployables:GetChildren()) do
         for _, obj in ipairs(dep:GetDescendants()) do
             if obj:IsA("BasePart") and obj.Name == "Door" then
-                if enabled then
+                if doorNoclipActive then
                     if obj:GetAttribute("OriginalDoorCollide") == nil then
                         obj:SetAttribute("OriginalDoorCollide", obj.CanCollide)
                     end
@@ -703,19 +698,7 @@ local function setDoorsNoclip(enabled)
                     end
                     obj.CanCollide = false
                     obj.Transparency = 0.8
-                else
-                    local oc = obj:GetAttribute("OriginalDoorCollide")
-                    local ot = obj:GetAttribute("OriginalDoorTransparency")
-                    if oc ~= nil then
-                        obj.CanCollide = oc
-                        obj:SetAttribute("OriginalDoorCollide", nil)
-                    end
-                    if ot ~= nil then
-                        obj.Transparency = ot
-                        obj:SetAttribute("OriginalDoorTransparency", nil)
-                    end
                 end
-                doorsFound += 1
             end
         end
 
@@ -723,7 +706,7 @@ local function setDoorsNoclip(enabled)
             if obj:IsA("Model") and obj.Name == "Door" then
                 for _, part in ipairs(obj:GetDescendants()) do
                     if part:IsA("BasePart") then
-                        if enabled then
+                        if doorNoclipActive then
                             if part:GetAttribute("OriginalDoorCollide") == nil then
                                 part:SetAttribute("OriginalDoorCollide", part.CanCollide)
                             end
@@ -732,26 +715,60 @@ local function setDoorsNoclip(enabled)
                             end
                             part.CanCollide = false
                             part.Transparency = 0.8
-                        else
-                            local oc = part:GetAttribute("OriginalDoorCollide")
-                            local ot = part:GetAttribute("OriginalDoorTransparency")
-                            if oc ~= nil then
-                                part.CanCollide = oc
-                                part:SetAttribute("OriginalDoorCollide", nil)
-                            end
-                            if ot ~= nil then
-                                part.Transparency = ot
-                                part:SetAttribute("OriginalDoorTransparency", nil)
-                            end
                         end
-                        doorsFound += 1
                     end
                 end
             end
         end
     end
+end
 
-    print((enabled and "✅ Noclip Puertas ACTIVADO, puertas tocadas: " or "❌ Noclip Puertas DESACTIVADO, puertas restauradas: ") .. doorsFound)
+local function restoreDoors()
+    local deployables = workspace:FindFirstChild("Deployables")
+    if not deployables then return end
+
+    local restored = 0
+
+    for _, dep in ipairs(deployables:GetChildren()) do
+        for _, obj in ipairs(dep:GetDescendants()) do
+            if obj:IsA("BasePart") then
+                local oc = obj:GetAttribute("OriginalDoorCollide")
+                local ot = obj:GetAttribute("OriginalDoorTransparency")
+                if oc ~= nil or ot ~= nil then
+                    if oc ~= nil then
+                        obj.CanCollide = oc
+                        obj:SetAttribute("OriginalDoorCollide", nil)
+                    end
+                    if ot ~= nil then
+                        obj.Transparency = ot
+                        obj:SetAttribute("OriginalDoorTransparency", nil)
+                    end
+                    restored += 1
+                end
+            end
+        end
+    end
+
+    print("❌ Noclip Puertas DESACTIVADO, puertas restauradas: " .. restored)
+end
+
+local function setDoorsNoclipLoop(enabled)
+    doorNoclipActive = enabled
+
+    if enabled then
+        if doorNoclipConn then doorNoclipConn:Disconnect() end
+        -- heartbeat para ir pillando puertas nuevas
+        doorNoclipConn = RunService.Heartbeat:Connect(function()
+            applyDoorNoclip()
+        end)
+        print("✅ Noclip Puertas ACTIVADO (loop)")
+    else
+        if doorNoclipConn then
+            doorNoclipConn:Disconnect()
+            doorNoclipConn = nil
+        end
+        restoreDoors()
+    end
 end
 
 -- ================= SPEED CFRAME =================
@@ -893,11 +910,10 @@ MiscTab:CreateToggle({
 })
 
 MiscTab:CreateToggle({
-    Name = "Noclip Puertas",
+    Name = "Noclip Puertas (loop)",
     CurrentValue = false,
     Callback = function(Value)
-        doorNoclipActive = Value
-        setDoorsNoclip(doorNoclipActive)
+        setDoorsNoclipLoop(Value)
     end,
 })
 
