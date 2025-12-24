@@ -1,5 +1,6 @@
 -- AUTOPICKUP + MISC + ESP + ESP DIOSES + ESP ITEMS IMPORTANTES + ESP METEOR CORE
--- + CAMERA NOCLIP + NOCLIP PUERTAS (LOOP) + SPEED CFRAME + TP DIMENSIONES + EXTRAS ESP DIOSES MAPA
+-- + CAMERA NOCLIP + NOCLIP PUERTAS (OPTIMIZADO) + SPEED CFRAME + TP DIMENSIONES
+-- + EXTRAS ESP DIOSES MAPA + AUTO HEAL BLOODFRUIT + ESP WANDERING TRADER
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
@@ -7,14 +8,14 @@ local Window = Rayfield:CreateWindow({
     Name = "Autopickup Aspiradora",
     LoadingTitle = "Cargando...",
     LoadingSubtitle = "by Tu Script",
-    ShowText = "v69",
+    ShowText = "v1.0",
     Theme = "Default"
 })
 
 local AutopickupTab = Window:CreateTab("Autopickup", 0)
-local MiscTab      = Window:CreateTab("Misc", 0)
-local BlackHoleTab = Window:CreateTab("el oyo negro", 0)
-local ExtrasTab    = Window:CreateTab("extras", 0)
+local MiscTab       = Window:CreateTab("Misc", 0)
+local BlackHoleTab  = Window:CreateTab("el oyo negro", 0)
+local ExtrasTab     = Window:CreateTab("extras", 0)
 
 -- Servicios
 local rs = game:GetService("ReplicatedStorage")
@@ -34,6 +35,18 @@ local DIMENSION_PLACE_ID = 11879754496
 local STORY_PLACE_ID     = 18596007812
 local TRADE_PLACE_ID     = 71090798546210
 local BOSS_PLACE_ID      = 114178392375273
+
+-- ====== CONFIG AUTO HEAL + ESP TRADER ======
+local HEAL_LOOPS     = 5
+local HEAL_THRESHOLD = 0.9      -- 90% vida
+local HEAL_COOLDOWN  = 0.016    -- casi 1 frame [web:575]
+local BF_STRING      = "+\4\0"  -- buffer de Bloodfruit (slot actual)
+
+local ByteNetReliable = rs:WaitForChild("ByteNetReliable")
+
+local autoHealEnabled  = false
+local traderESPEnabled = false
+local traderHighlight  = nil
 
 -- Estados
 local pickupActive = false
@@ -58,11 +71,11 @@ local cameraNoclipActive = false
 local cameraNoclipLoop = nil
 
 local doorNoclipActive = false
-local doorNoclipConn = nil
+local doorNoclipLoop = nil
 
 local speedCFrameActive = false
-local speedValue = 0.2025
-local baseSpeedFactor = 0.2025
+local speedValue = 0.2030
+local baseSpeedFactor = 0.2030
 
 local mapGodsEspActive = false
 local mapGodsEspLoop = nil
@@ -680,25 +693,23 @@ local function stopCameraNoclip()
     print("❌ Camera Noclip DESACTIVADO")
 end
 
--- ================= NOCLIP PUERTAS (LOOP) =================
+-- ================= NOCLIP PUERTAS (OPTIMIZADO, LOOP 0.5s) =================
 
-local function applyDoorNoclip()
+local function applyDoorNoclipOnce()
     local deployables = workspace:FindFirstChild("Deployables")
     if not deployables then return end
 
     for _, dep in ipairs(deployables:GetChildren()) do
         for _, obj in ipairs(dep:GetDescendants()) do
             if obj:IsA("BasePart") and obj.Name == "Door" then
-                if doorNoclipActive then
-                    if obj:GetAttribute("OriginalDoorCollide") == nil then
-                        obj:SetAttribute("OriginalDoorCollide", obj.CanCollide)
-                    end
-                    if obj:GetAttribute("OriginalDoorTransparency") == nil then
-                        obj:SetAttribute("OriginalDoorTransparency", obj.Transparency)
-                    end
-                    obj.CanCollide = false
-                    obj.Transparency = 0.8
+                if obj:GetAttribute("OriginalDoorCollide") == nil then
+                    obj:SetAttribute("OriginalDoorCollide", obj.CanCollide)
                 end
+                if obj:GetAttribute("OriginalDoorTransparency") == nil then
+                    obj:SetAttribute("OriginalDoorTransparency", obj.Transparency)
+                end
+                obj.CanCollide = false
+                obj.Transparency = 0.8
             end
         end
 
@@ -706,16 +717,14 @@ local function applyDoorNoclip()
             if obj:IsA("Model") and obj.Name == "Door" then
                 for _, part in ipairs(obj:GetDescendants()) do
                     if part:IsA("BasePart") then
-                        if doorNoclipActive then
-                            if part:GetAttribute("OriginalDoorCollide") == nil then
-                                part:SetAttribute("OriginalDoorCollide", part.CanCollide)
-                            end
-                            if part:GetAttribute("OriginalDoorTransparency") == nil then
-                                part:SetAttribute("OriginalDoorTransparency", part.Transparency)
-                            end
-                            part.CanCollide = false
-                            part.Transparency = 0.8
+                        if part:GetAttribute("OriginalDoorCollide") == nil then
+                            part:SetAttribute("OriginalDoorCollide", part.CanCollide)
                         end
+                        if part:GetAttribute("OriginalDoorTransparency") == nil then
+                            part:SetAttribute("OriginalDoorTransparency", part.Transparency)
+                        end
+                        part.CanCollide = false
+                        part.Transparency = 0.8
                     end
                 end
             end
@@ -752,20 +761,26 @@ local function restoreDoors()
     print("❌ Noclip Puertas DESACTIVADO, puertas restauradas: " .. restored)
 end
 
-local function setDoorsNoclipLoop(enabled)
+local function setDoorsNoclipOptimized(enabled)
     doorNoclipActive = enabled
 
     if enabled then
-        if doorNoclipConn then doorNoclipConn:Disconnect() end
-        -- heartbeat para ir pillando puertas nuevas
-        doorNoclipConn = RunService.Heartbeat:Connect(function()
-            applyDoorNoclip()
+        if doorNoclipLoop then
+            task.cancel(doorNoclipLoop)
+            doorNoclipLoop = nil
+        end
+
+        doorNoclipLoop = task.spawn(function()
+            print("✅ Noclip Puertas ACTIVADO (loop 0.5s)")
+            while doorNoclipActive do
+                applyDoorNoclipOnce()
+                task.wait(0.5)
+            end
         end)
-        print("✅ Noclip Puertas ACTIVADO (loop)")
     else
-        if doorNoclipConn then
-            doorNoclipConn:Disconnect()
-            doorNoclipConn = nil
+        if doorNoclipLoop then
+            task.cancel(doorNoclipLoop)
+            doorNoclipLoop = nil
         end
         restoreDoors()
     end
@@ -788,6 +803,89 @@ RunService.RenderStepped:Connect(function(dt)
         local delta = moveDir.Unit * speedValue * baseSpeedFactor
         hrp.CFrame = hrp.CFrame + Vector3.new(delta.X, 0, delta.Z)
     end
+end)
+
+-- ================= AUTO HEAL BLOODFRUIT x5 =================
+
+local function startHealLoop(id)
+    task.spawn(function()
+        local lastHeal = 0
+        while true do
+            task.wait() -- 1 frame [web:575]
+
+            if not autoHealEnabled then
+                continue
+            end
+
+            local char = player.Character
+            if not char then continue end
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if not hum or hum.Health <= 0 then
+                continue
+            end
+
+            local hp = hum.Health
+            local maxhp = hum.MaxHealth
+            if maxhp <= 0 then
+                continue
+            end
+
+            local ratio = hp / maxhp
+            if ratio <= HEAL_THRESHOLD and (tick() - lastHeal) >= HEAL_COOLDOWN then
+                lastHeal = tick()
+                pcall(function()
+                    ByteNetReliable:FireServer(buffer.fromstring(BF_STRING))
+                end)
+            end
+        end
+    end)
+end
+
+for i = 1, HEAL_LOOPS do
+    startHealLoop(i)
+end
+
+-- ================= ESP WANDERING TRADER =================
+
+local function getWanderingTrader()
+    local ok, npc = pcall(function()
+        return workspace.DialogNPCs.Normal["Wandering Trader"]
+    end)
+    if ok and npc and npc:IsA("Model") then
+        return npc
+    end
+    return nil
+end
+
+RunService.Heartbeat:Connect(function()
+    if not traderESPEnabled then
+        if traderHighlight then
+            traderHighlight:Destroy()
+            traderHighlight = nil
+        end
+        return
+    end
+
+    local trader = getWanderingTrader()
+    if not trader then
+        if traderHighlight then
+            traderHighlight:Destroy()
+            traderHighlight = nil
+        end
+        return
+    end
+
+    if not traderHighlight then
+        traderHighlight = Instance.new("Highlight")
+        traderHighlight.FillColor           = Color3.fromRGB(255, 0, 255)
+        traderHighlight.OutlineColor        = Color3.fromRGB(255, 255, 255)
+        traderHighlight.FillTransparency    = 0.5
+        traderHighlight.OutlineTransparency = 0
+        traderHighlight.DepthMode           = Enum.HighlightDepthMode.AlwaysOnTop -- ESP walls [web:611][web:613]
+        traderHighlight.Parent              = trader
+    end
+
+    traderHighlight.Adornee = trader
 end)
 
 -- ============ AUTOPICKUP TAB ============
@@ -910,10 +1008,10 @@ MiscTab:CreateToggle({
 })
 
 MiscTab:CreateToggle({
-    Name = "Noclip Puertas (loop)",
+    Name = "Noclip Puertas (0.5s loop)",
     CurrentValue = false,
     Callback = function(Value)
-        setDoorsNoclipLoop(Value)
+        setDoorsNoclipOptimized(Value)
     end,
 })
 
@@ -963,7 +1061,7 @@ BlackHoleTab:CreateButton({
     end,
 })
 
--- ============ TAB "extras" (ESP dioses mapa) ============
+-- ============ TAB "extras" (ESP dioses mapa + autoheal + trader ESP) ============
 
 ExtrasTab:CreateToggle({
     Name = "ESP Dioses del mapa",
@@ -977,6 +1075,24 @@ ExtrasTab:CreateToggle({
             stopMapGodsESP()
             print("❌ ESP Dioses Mapa DESACTIVADO")
         end
+    end,
+})
+
+ExtrasTab:CreateToggle({
+    Name = "Ultra Auto Heal (Bloodfruit x5)",
+    CurrentValue = false,
+    Callback = function(Value)
+        autoHealEnabled = Value
+        print(Value and "✅ Auto Heal Bloodfruit ACTIVADO" or "❌ Auto Heal Bloodfruit DESACTIVADO")
+    end,
+})
+
+ExtrasTab:CreateToggle({
+    Name = "ESP Wandering Trader",
+    CurrentValue = false,
+    Callback = function(Value)
+        traderESPEnabled = Value
+        print(Value and "✅ ESP Wandering Trader ACTIVADO" or "❌ ESP Wandering Trader DESACTIVADO")
     end,
 })
 
