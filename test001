@@ -38,9 +38,9 @@ local BOSS_PLACE_ID      = 114178392375273
 
 -- ====== CONFIG AUTO HEAL + ESP TRADER ======
 local HEAL_LOOPS     = 5
-local HEAL_THRESHOLD = 0.9      -- 90% vida
-local HEAL_COOLDOWN  = 0.016    -- casi 1 frame [web:575]
-local BF_STRING      = "+\4\0"  -- buffer de Bloodfruit (slot actual)
+local HEAL_THRESHOLD = 0.9       -- 90% vida
+local HEAL_COOLDOWN  = 0.016     -- casi 1 frame [web:575]
+local BF_STRING      = "+\2\0"   -- NUEVO buffer de Bloodfruit
 
 local ByteNetReliable = rs:WaitForChild("ByteNetReliable")
 
