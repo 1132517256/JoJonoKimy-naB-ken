@@ -83,6 +83,12 @@ local mapGodsEspLoop = nil
 local playersWithESP = {}
 local playersWithGodESP = {}
 
+local hitboxExpanderActive = false
+local hitboxSizeValue = 14
+local hitboxTransparency = 0.4
+
+
+
 -- LISTA DE ITEMS CON FILTRO AUTOPICKUP
 local itemFilters = {
     ["Emerald"] = true,
@@ -107,6 +113,88 @@ local importantItemNames = {
     ["Gold"] = true,
     ["Crystal Chunk"] = true,
 }
+
+-- ================= HITBOX EXPANDER (HRP directo) =================
+
+local originalHitboxData = {}
+
+local function applyHitboxToPlayer(plr)
+    if plr == player then return end
+    local char = plr.Character
+    if not char then return end
+
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp or not hrp:IsA("BasePart") then return end
+
+    if not originalHitboxData[hrp] then
+        originalHitboxData[hrp] = {
+            Size = hrp.Size,
+            Transparency = hrp.Transparency,
+            CanCollide = hrp.CanCollide
+        }
+    end
+
+    hrp.CanCollide = false
+    hrp.Size = Vector3.new(hitboxSizeValue, hitboxSizeValue, hitboxSizeValue)
+    hrp.Transparency = hitboxTransparency
+end
+
+local function restoreHitbox(plr)
+    local char = plr.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    local data = originalHitboxData[hrp]
+    if data then
+        hrp.Size = data.Size
+        hrp.Transparency = data.Transparency
+        hrp.CanCollide = data.CanCollide
+        originalHitboxData[hrp] = nil
+    end
+end
+
+local function startHitboxLoop()
+    task.spawn(function()
+        while hitboxExpanderActive do
+            task.wait(0.1)
+            for _, plr in ipairs(Players:GetPlayers()) do
+                if plr ~= player then
+                    applyHitboxToPlayer(plr)
+                end
+            end
+        end
+    end)
+end
+
+local function stopHitbox()
+    hitboxExpanderActive = false
+
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player then
+            restoreHitbox(plr)
+        end
+    end
+
+    for hrp, data in pairs(originalHitboxData) do
+        if hrp and hrp.Parent then
+            hrp.Size = data.Size
+            hrp.Transparency = data.Transparency
+            hrp.CanCollide = data.CanCollide
+        end
+    end
+    originalHitboxData = {}
+    print("✅ Hitbox Expander restaurado")
+end
+
+Players.PlayerAdded:Connect(function(plr)
+    plr.CharacterRemoving:Connect(function()
+        restoreHitbox(plr)
+    end)
+end)
+
+
+
 
 -- Nombres de dioses en workspace.Resources para ESP extra
 local mapGodNames = {
@@ -1095,5 +1183,22 @@ ExtrasTab:CreateToggle({
         print(Value and "✅ ESP Wandering Trader ACTIVADO" or "❌ ESP Wandering Trader DESACTIVADO")
     end,
 })
+
+ExtrasTab:CreateToggle({
+    Name = "Hitbox Expander (HRP x14)",
+    CurrentValue = false,
+    Callback = function(Value)
+        hitboxExpanderActive = Value
+        if Value then
+            print("✅ Hitbox Expander ACTIVADO")
+            startHitboxLoop()
+        else
+            stopHitbox()
+        end
+    end,
+})
+
+
+
 
 print("✅ Script cargado correctamente")
