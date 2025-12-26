@@ -26,6 +26,19 @@ local RunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
 local player = Players.LocalPlayer
 
+-- Quitar límite de zoom de cámara
+player.CameraMaxZoomDistance = 1000
+player.CameraMinZoomDistance = 0.5
+
+task.spawn(function()
+    while true do
+        player.CameraMaxZoomDistance = 1000
+        player.CameraMinZoomDistance = 0.5
+        task.wait(1)
+    end
+end)
+
+
 local ITEMS_FOLDER = workspace:WaitForChild("Items")
 local PICKUP_DISTANCE = 25
 
@@ -86,6 +99,9 @@ local playersWithGodESP = {}
 local hitboxExpanderActive = false
 local hitboxSizeValue = 14
 local hitboxTransparency = 0.4
+
+local cameraNoclip2Active = false
+
 
 
 
@@ -727,59 +743,55 @@ end
 
 -- ================= CAMERA NOCLIP (Deployables) =================
 
-local function setDeployablesTransparency(makeTransparent)
-    local deployables = workspace:FindFirstChild("Deployables")
-    if not deployables then return end
-    
-    for _, part in ipairs(deployables:GetDescendants()) do
-        if part:IsA("BasePart") then
-            if makeTransparent then
-                if part:GetAttribute("OriginalTransparency") == nil then
-                    part:SetAttribute("OriginalTransparency", part.Transparency)
-                end
-                part.Transparency = 0.8
-            else
-                local original = part:GetAttribute("OriginalTransparency")
-                if original ~= nil then
-                    part.Transparency = original
-                    part:SetAttribute("OriginalTransparency", nil)
-                end
-            end
-        end
-    end
+-- ================= CAMERA NOCLIP (FOLLOW HRP) =================
+
+local camNoclipActive = false
+local cam = workspace.CurrentCamera
+local Players = game:GetService("Players")
+local lp = Players.LocalPlayer
+local UIS = game:GetService("UserInputService")
+
+local desiredZoom = 30  -- distancia inicial
+local minZoom, maxZoom = 5, 200
+
+workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+    cam = workspace.CurrentCamera
+end)
+
+local function startCamNoclip()
+    camNoclipActive = true
+    print("✅ Camera Noclip FOLLOW ACTIVADO")
 end
 
-local function startCameraNoclip()
-    cameraNoclipActive = true
-    
-    if cameraNoclipLoop then
-        task.cancel(cameraNoclipLoop)
-        cameraNoclipLoop = nil
-    end
-    
-    setDeployablesTransparency(true)
-    
-    cameraNoclipLoop = task.spawn(function()
-        while cameraNoclipActive do
-            task.wait(1.5)
-            setDeployablesTransparency(true)
-        end
-    end)
-    
-    print("✅ Camera Noclip ACTIVADO")
+local function stopCamNoclip()
+    camNoclipActive = false
+    print("❌ Camera Noclip FOLLOW DESACTIVADO")
 end
 
-local function stopCameraNoclip()
-    cameraNoclipActive = false
-    
-    if cameraNoclipLoop then
-        task.cancel(cameraNoclipLoop)
-        cameraNoclipLoop = nil
+game:GetService("RunService").RenderStepped:Connect(function(dt)
+    if not camNoclipActive then return end
+
+    local char = lp.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    -- leer zoom de la rueda (usa WheelForward/WheelBackward del UserInputService si prefieres)
+    local delta = UIS:GetMouseDelta().Y
+    if delta ~= 0 then
+        desiredZoom = math.clamp(desiredZoom + delta * 0.5, minZoom, maxZoom)
     end
-    
-    setDeployablesTransparency(false)
-    print("❌ Camera Noclip DESACTIVADO")
-end
+
+    -- dirección desde el HRP hacia la cámara actual (solo horizontal para no irnos arriba)
+    local lookDir = (cam.CFrame.Position - hrp.Position)
+    if lookDir.Magnitude < 1 then
+        lookDir = -cam.CFrame.LookVector
+    end
+    lookDir = Vector3.new(lookDir.X, 0, lookDir.Z).Unit
+
+    local camPos = hrp.Position + lookDir * desiredZoom + Vector3.new(0, 4, 0)
+    cam.CFrame = CFrame.new(camPos, hrp.Position + Vector3.new(0, 3, 0))
+end)
+
 
 -- ================= NOCLIP PUERTAS (OPTIMIZADO, LOOP 0.5s) =================
 
@@ -892,6 +904,47 @@ RunService.RenderStepped:Connect(function(dt)
         hrp.CFrame = hrp.CFrame + Vector3.new(delta.X, 0, delta.Z)
     end
 end)
+
+-- ================= CAMERA NOCLIP 2 (Invisicam) =================
+
+local Players = game:GetService("Players")
+local localPlayer = Players.LocalPlayer
+local originalOcclusionMode = localPlayer.DevCameraOcclusionMode
+
+local function startCameraNoclip2()
+    cameraNoclip2Active = true
+    originalOcclusionMode = localPlayer.DevCameraOcclusionMode
+    localPlayer.DevCameraOcclusionMode = Enum.DevCameraOcclusionMode.Invisicam
+    print("✅ Camera Invisicam ACTIVADO")
+end
+
+local function stopCameraNoclip2()
+    cameraNoclip2Active = false
+    localPlayer.DevCameraOcclusionMode = originalOcclusionMode
+    print("❌ Camera Invisicam DESACTIVADO")
+end
+
+-- ================= RE-CLIP PERSONAJE =================
+
+local function forceCharacterClip()
+    local char = player.Character
+    if not char then return end
+
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = true
+            if part.Name ~= "HumanoidRootPart" then
+                part.Transparency = 0
+            end
+        end
+    end
+
+    print("✅ Personaje re-clippeado (CanCollide ON)")
+end
+
+
+
+
 
 -- ================= AUTO HEAL BLOODFRUIT x5 =================
 
@@ -1197,6 +1250,29 @@ ExtrasTab:CreateToggle({
         end
     end,
 })
+
+ExtrasTab:CreateToggle({
+    Name = "Camera Noclip (Invisicam)",
+    CurrentValue = false,
+    Callback = function(Value)
+        if Value then
+            startCameraNoclip2()
+        else
+            stopCameraNoclip2()
+        end
+    end,
+})
+
+ExtrasTab:CreateButton({
+    Name = "Fix Clip Personaje",
+    Callback = function()
+        forceCharacterClip()
+    end,
+})
+
+
+
+
 
 
 
